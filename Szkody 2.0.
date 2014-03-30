@@ -1,4 +1,4 @@
---T.T. 2014-Mar (version 2.0)
+--2014-Mar (version 2.0)
 --Optymalizacja czasu wykonania względem wersji 1.0 (~20 min --> ~4 min dla konkretnej bazy danych)
 
 
@@ -6,7 +6,7 @@ SELECT CASE
                    WHEN NOT EXISTS
                                (SELECT /*+ index (zszk OUT_OBJECT_ID) */
                                       NULL
-                                  FROM www_admin.interfacetable_out
+                                  FROM table_out
                                   WHERE    type = 'ZSZK' and object_id = zszk_id
                                        AND firma = 'Z')
                    THEN
@@ -18,61 +18,60 @@ SELECT CASE
                 zszk_id AS id,
                 zszk_ubez_id AS ref_id,
                 zszk_jsta_symbol AS field01,
-                 zszk_filled_form_id AS field02,
+                zszk_filled_form_id AS field02,
                 zszk_sygnatura AS field03,
                 zszk_nr_zgloszenia AS field04,
                 nvl(TRIM (zszk_poszkodowany),'BRAK DANYCH') AS field05,
-                 zszk_data_zgloszenia AS field06,
+                zszk_data_zgloszenia AS field06,
                 zszk_status AS field07,
                 zszk_rodzaj AS field08,
                 nvl(zszk_przyczyna_szkody,'BRAK DANYCH') AS field09,
                 zszk_kwota AS field10,
-                 zszk_waluta AS field11,
+                zszk_waluta AS field11,
                 zszk_data_decyzji AS field12,
                 zszk_przyczyna_odmowy AS field13
-                bulk collect into szkody
            FROM (WITH poszkodowani
                        AS (SELECT kont_id,
                                  kont_osob_id,
                                  kont_zszk_id,
                                  slow_kod
-                            FROM    sub_kontrahenci
+                            FROM    table_kont
                                   JOIN
-                                    sub_slowniki
+                                    table_slowniki
                                  ON kont_slow_id_trko = slow_id
                            WHERE     kont_nr_wersji = 0
                                  AND slow_kod IN
                                          (SELECT wpa_wartosc
-                                           FROM adm_wartosci_parametrow
+                                           FROM table_w_params
                                           WHERE wpa_par_id IN
                                                    (SELECT par_id
-                                                       FROM adm_parametry
+                                                       FROM table_params
                                                      WHERE par_nazwa =
-                                                              'TRKO_KOD_POSZKODOWANY'))),
-                       alior
+                                                              'YYY'))),
+                       xxx
                       AS (SELECT /*+ INDEX(u SUB_UBEZ_UK ) */
                                 poli_id, poli_jsta_symbol, ubez_id
-                            FROM    sub_polisy
+                            FROM    table_pol
                                  JOIN
-                                     sub_ubezpieczenia u
+                                     table ubez u
                                  ON ubez_poli_id = poli_id
                            WHERE     poli_typ = 'P'
                                  AND poli_nr_wersji = 0
                                   AND EXISTS
                                         (SELECT *
-                                           FROM sub_jednostki_stat
+                                           FROM table_jsta
                                           WHERE     LOWER (jsta_nazwa) LIKE
-                                                        '%alior%'
+                                                        '%xxx%'
                                                 AND jsta_symbol =
                                                        poli_jsta_symbol)),
-                       alior_zszk_ptec
-                      AS ( --Wybór ostatniej aktualnej wersji w zamkniętej pozycji (tylko takie są niezmienne)
+                       xxx_zszk_ptec
+                      AS ( 
                           SELECT /*+ INDEX(z SUB_ZSZK_UBEZ_FK_I) */
                                  a.*,
-                                 zszk_id alior_zszk_id,
-                                 zszk_ubez_id alior_zszk_ubez_id,
+                                 zszk_id xxx_zszk_id,
+                                 zszk_ubez_id xxx_zszk_ubez_id,
                                  zszk_nr_wersji,
-                                 zszk_zszk_id alior_zszk_zszk_id,
+                                 zszk_zszk_id xxx_zszk_zszk_id,
                                   CASE
                                     WHEN (MIN (
                                              zszk_nr_wersji)
@@ -91,22 +90,22 @@ SELECT CASE
                                                            zszk_id)))
                                  END
                                     zszk_nr_wersji_akt
-                             FROM sub_zgloszenia_szk z
-                                 JOIN alior a
+                             FROM table_zszk z
+                                 JOIN xxx a
                                     ON zszk_ubez_id = ubez_id
-                                 JOIN sub_pozycje_Teczek
+                                 JOIN table_ptec
                                      ON ptec_id = zszk_ptec_id
                            WHERE ptec_status_sprawy = 'X'),
-                      alior_zszk_aktu
+                      xxx_zszk_aktu
                       AS (SELECT /*+ MATERIALIZE */
                                  *
-                            FROM alior_zszk_ptec
+                            FROM xxx_zszk_ptec
                            WHERE zszk_nr_wersji = zszk_nr_wersji_akt)
-                 SELECT alior_zszk_id AS zszk_id,
-                        alior_zszk_ubez_id AS zszk_ubez_id,
+                 SELECT xxx_zszk_id AS zszk_id,
+                        xxx_zszk_ubez_id AS zszk_ubez_id,
                          poli_jsta_symbol AS zszk_jsta_symbol,
                         i.FIELD_FORM_ID AS zszk_filled_form_id,
-                        DECODE (adm_pk_global.fn_daj_kod_aplikacji (),
+                        DECODE (function_apl (),
                                 'SUL', 'Z',
                                  'SUB', 'M')
                            zszk_firma,
@@ -124,36 +123,36 @@ SELECT CASE
                                    a
                            FROM    poszkodowani
                                  JOIN
-                                   sub_osoby
+                                   table_osoby
                                 ON osob_id = kont_osob_id
-                          WHERE kont_zszk_id = alior_zszk_id)
+                          WHERE kont_zszk_id = xxx_zszk_id)
                            AS zszk_poszkodowany,
                          zszk_data_zgloszenia,
-                        sub_pk_ubsz0000.fn_daj_stan_szkody_portal (
-                           alior_zszk_id)
+                        function_stan_szk (
+                           xxx_zszk_id)
                            AS zszk_status,
                         NULL AS zszk_rodzaj,
                          pszo_nazwa AS zszk_przyczyna_szkody,
                         osza_wartosc AS zszk_kwota,
                         osza_walu_kod AS zszk_waluta,
                         osza_data_decyzji AS zszk_data_decyzji,
-                         slow_nazwa AS zszk_przyczyna_odmowy,
+                        slow_nazwa AS zszk_przyczyna_odmowy,
                         rosz_data_sprawy,
                         MAX (rosz_data_sprawy)
                            OVER (PARTITION BY alior_zszk_id)
                             MAX
-                   FROM alior_zszk_aktu
-                        JOIN sub_zgloszenia_szk z
-                           ON alior_zszk_id = zszk_id
-                        JOIN sub_roszczenia
+                   FROM xxx_zszk_aktu
+                        JOIN table_zszk z
+                           ON xxx_zszk_id = zszk_id
+                        JOIN table_rosz
                             ON rosz_zszk_id = zszk_id
-                        JOIN sub_oszacowania
+                        JOIN table_osza
                            ON osza_rosz_id = rosz_id
-                        LEFT JOIN sub_przyczyny_szkod
+                        LEFT JOIN table_pszo
                            ON rosz_pszo_id = pszo_id
-                         LEFT JOIN INTERFACE_ESZKODY i
-                           ON i.zszk_id = alior_zszk_id
-                        LEFT JOIN sub_slowniki
+                         LEFT JOIN table_eszk i
+                           ON i.zszk_id = xxx_zszk_id
+                        LEFT JOIN table_slowniki
                            ON rosz_slow_id_tpod = slow_id
                          where  (   zszk_data_utworzenia BETWEEN d_data_od
                                                            AND d_data_do
