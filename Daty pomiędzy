@@ -1,0 +1,9 @@
+--T.T. 2014-02
+--Zapytanie wybiera wszystkie daty pomiędzy dwoma zadanymi (bardzo zwinnie za pomocą klauzuli connect by)
+
+select to_char(to_date(level,'j'),'RRRR-MM-DD') 
+from dual 
+where level >= (to_date(:P_DATA_OD,'RRRR-MM-DD') - to_date(1,'j') + 1) 
+connect by level <= (to_date(:P_DATA_DO,'RRRR-MM-DD') - to_date(1,'j') + 1);
+
+
