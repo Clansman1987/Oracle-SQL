@@ -1,0 +1,8 @@
+--TT 2014-04
+--Zapytanie rozspaja ciąg znaków na osobne rekordy względem selektora # (znowu bardzo sprytne użycie klauzuli connect by)
+
+
+with text as
+(select 'ABC#DEF#GHI#KLMN' as txt, '#' as sel from dual)
+select regexp_substr(txt,'[^'||sel||']+',1,level) k1 from text
+connect by level <= length(regexp_replace(txt,'[^'||sel||']+')) + 1;
