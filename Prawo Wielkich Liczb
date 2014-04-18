@@ -1,0 +1,11 @@
+--TT 2014-02
+--Zapytanie prezentujące rozkad prawdopodobieństwa losowań liczb od 1 do 10 
+--(im większa wartość v_ile, tym bardziej równomierny rozkład zgodnie z  PWL)  
+
+select output, rank() over(order by count(*) desc) czestosc, count(*) ilosc, round(count(*)/:v_ile*100,4) procent from (
+select floor(dbms_random.value(1,10.999999999999999999)) output
+from   dual
+       connect by level <= :v_ile)
+       group by output
+       order by output;  
+
